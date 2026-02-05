@@ -21,13 +21,6 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     redirect: '/dashboard'
   },
-  // 兼容文档链接：将 /paper/<name>.md 重定向到学习中心文章路由
-  {
-    path: '/paper/:name.md',
-    name: 'PaperMdRedirect',
-    redirect: (to) => `/learning/article/${to.params.name as string}`,
-    meta: { title: '文档跳转', hideInMenu: true, requiresAuth: false }
-  },
   {
     path: '/dashboard',
     name: 'Dashboard',
@@ -91,95 +84,6 @@ const routes: RouteRecordRaw[] = [
       }
     ]
   },
-
-  {
-    path: '/favorites',
-    name: 'Favorites',
-    component: () => import('@/layouts/BasicLayout.vue'),
-    meta: {
-      title: '我的自选股',
-      icon: 'Star',
-      requiresAuth: true,
-      transition: 'slide-up'
-    },
-    children: [
-      {
-        path: '',
-        name: 'FavoritesHome',
-        component: () => import('@/views/Favorites/index.vue'),
-        meta: {
-          title: '我的自选股',
-          requiresAuth: true
-        }
-      }
-    ]
-  },
-  {
-    path: '/learning',
-    name: 'Learning',
-    component: () => import('@/layouts/BasicLayout.vue'),
-    meta: {
-      title: '学习中心',
-      icon: 'Reading',
-      requiresAuth: false,
-      transition: 'fade'
-    },
-    children: [
-      {
-        path: '',
-        name: 'LearningHome',
-        component: () => import('@/views/Learning/index.vue'),
-        meta: {
-          title: '学习中心',
-          requiresAuth: false
-        }
-      },
-      {
-        path: ':category',
-        name: 'LearningCategory',
-        component: () => import('@/views/Learning/Category.vue'),
-        meta: {
-          title: '学习分类',
-          requiresAuth: false
-        }
-      },
-      {
-        path: 'article/:id',
-        name: 'LearningArticle',
-        component: () => import('@/views/Learning/Article.vue'),
-        meta: {
-          title: '文章详情',
-          requiresAuth: false
-        }
-      }
-    ]
-  },
-  {
-    path: '/stocks',
-    name: 'Stocks',
-    component: () => import('@/layouts/BasicLayout.vue'),
-    meta: {
-      title: '股票详情',
-      icon: 'TrendCharts',
-      requiresAuth: true,
-      hideInMenu: true,
-      transition: 'fade'
-    },
-    children: [
-      {
-        path: ':code',
-        name: 'StockDetail',
-        component: () => import('@/views/Stocks/Detail.vue'),
-        meta: {
-          title: '股票详情',
-          requiresAuth: true,
-          hideInMenu: true,
-          transition: 'fade'
-        }
-      }
-    ]
-  },
-
 
   {
     path: '/tasks',
@@ -299,33 +203,6 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
-        path: 'sync',
-        name: 'MultiSourceSync',
-        component: () => import('@/views/System/MultiSourceSync.vue'),
-        meta: {
-          title: '多数据源同步',
-          requiresAuth: true
-        }
-      },
-      {
-        path: 'cache',
-        name: 'CacheManagement',
-        component: () => import('@/views/Settings/CacheManagement.vue'),
-        meta: {
-          title: '缓存管理',
-          requiresAuth: true
-        }
-      },
-      {
-        path: 'usage',
-        name: 'UsageStatistics',
-        component: () => import('@/views/Settings/UsageStatistics.vue'),
-        meta: {
-          title: '使用统计',
-          requiresAuth: true
-        }
-      },
-      {
         path: 'scheduler',
         name: 'SchedulerManagement',
         component: () => import('@/views/System/SchedulerManagement.vue'),
@@ -358,28 +235,6 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: false, // 关于页面不需要认证
       transition: 'fade'
     }
-  },
-  {
-    path: '/paper',
-    name: 'PaperTrading',
-    component: () => import('@/layouts/BasicLayout.vue'),
-    meta: {
-      title: '模拟交易',
-      icon: 'CreditCard',
-      requiresAuth: true,
-      transition: 'slide-up'
-    },
-    children: [
-      {
-        path: '',
-        name: 'PaperTradingHome',
-        component: () => import('@/views/PaperTrading/index.vue'),
-        meta: {
-          title: '模拟交易',
-          requiresAuth: true
-        }
-      }
-    ]
   },
 
   {

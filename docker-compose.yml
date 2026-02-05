@@ -12,7 +12,7 @@ services:
     image: tradingagents-backend:v1.0.0-preview
     container_name: tradingagents-backend
     ports:
-      - "8000:8000"
+      - "4431:8000"
     volumes:
       # 日志目录映射
       - ./logs:/app/logs
@@ -40,7 +40,7 @@ services:
       API_HOST: "0.0.0.0"
       API_PORT: "8000"
       # CORS配置
-      CORS_ORIGINS: "http://localhost:3000,http://localhost:8080,http://localhost:5173"
+      CORS_ORIGINS: "http://localhost:4433,http://localhost:8080,http://localhost:5173"
     depends_on:
       mongodb:
         condition: service_healthy
@@ -69,11 +69,11 @@ services:
     image: tradingagents-frontend:v1.0.0-preview
     container_name: tradingagents-frontend
     ports:
-      - "3000:80"
+      - "4433:80"
     environment:
       TZ: "Asia/Shanghai"
       # 后端API地址
-      VITE_API_BASE_URL: "http://localhost:8000"
+      VITE_API_BASE_URL: "http://localhost:4431"
     depends_on:
       backend:
         condition: service_healthy
@@ -127,7 +127,7 @@ services:
     container_name: tradingagents-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"  # 修改主机端口为6380，避免与其他Redis实例冲突
     environment:
       TZ: "Asia/Shanghai"
     command: redis-server --appendonly yes --requirepass tradingagents123

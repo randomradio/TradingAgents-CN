@@ -11,11 +11,6 @@
       <template #title>仪表板</template>
     </el-menu-item>
 
-    <el-menu-item index="/learning">
-      <el-icon><Reading /></el-icon>
-      <template #title>学习中心</template>
-    </el-menu-item>
-
     <el-sub-menu index="/analysis">
       <template #title>
         <el-icon><TrendCharts /></el-icon>
@@ -37,18 +32,8 @@
       <template #title>股票筛选</template>
     </el-menu-item>
 
-    <el-menu-item index="/favorites">
-      <el-icon><Star /></el-icon>
-      <template #title>我的自选股</template>
-    </el-menu-item>
 
-    <el-menu-item index="/paper">
-      <el-icon><CreditCard /></el-icon>
-      <template #title>模拟交易</template>
-    </el-menu-item>
-
-
-    <!-- 分析报告已移至“股票分析”子菜单，保留注释便于追踪 -->
+    <!-- 分析报告已移至"股票分析"子菜单，保留注释便于追踪 -->
     <!--
     <el-menu-item index="/reports">
       <el-icon><Document /></el-icon>
@@ -76,7 +61,6 @@
       <el-sub-menu index="/settings-config">
         <template #title>系统配置</template>
         <el-menu-item index="/settings/config">配置管理</el-menu-item>
-        <el-menu-item index="/settings/cache">缓存管理</el-menu-item>
       </el-sub-menu>
 
       <!-- 系统管理 -->
@@ -85,9 +69,7 @@
         <el-menu-item index="/settings/database">数据库管理</el-menu-item>
         <el-menu-item index="/settings/logs">操作日志</el-menu-item>
         <el-menu-item index="/settings/system-logs">系统日志</el-menu-item>
-        <el-menu-item index="/settings/sync">多数据源同步</el-menu-item>
         <el-menu-item index="/settings/scheduler">定时任务</el-menu-item>
-        <el-menu-item index="/settings/usage">使用统计</el-menu-item>
       </el-sub-menu>
     </el-sub-menu>
 

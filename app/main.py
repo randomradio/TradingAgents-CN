@@ -28,7 +28,7 @@ from pathlib import Path
 from app.core.config import settings
 from app.core.database import init_db, close_db
 from app.core.logging_config import setup_logging
-from app.routers import auth_db as auth, analysis, screening, queue, sse, health, favorites, config, reports, database, operation_logs, tags, tushare_init, akshare_init, baostock_init, historical_data, multi_period_sync, financial_data, news_data, social_media, internal_messages, usage_statistics, model_capabilities, cache, logs
+from app.routers import auth_db as auth, analysis, screening, queue, sse, health, config, reports, database, operation_logs, tags, tushare_init, historical_data, multi_period_sync, financial_data, news_data, social_media, internal_messages, usage_statistics, model_capabilities, cache, logs
 from app.routers import sync as sync_router, multi_source_sync
 from app.routers import stocks as stocks_router
 from app.routers import stock_data as stock_data_router
@@ -47,19 +47,6 @@ from app.worker.tushare_sync_service import (
     run_tushare_financial_sync,
     run_tushare_status_check
 )
-from app.worker.akshare_sync_service import (
-    run_akshare_basic_info_sync,
-    run_akshare_quotes_sync,
-    run_akshare_historical_sync,
-    run_akshare_financial_sync,
-    run_akshare_status_check
-)
-from app.worker.baostock_sync_service import (
-    run_baostock_basic_info_sync,
-    run_baostock_daily_quotes_sync,
-    run_baostock_historical_sync,
-    run_baostock_status_check
-)
 # 港股和美股改为按需获取+缓存模式，不再需要定时同步任务
 # from app.worker.hk_sync_service import ...
 # from app.worker.us_sync_service import ...
@@ -68,7 +55,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from app.services.quotes_ingestion_service import QuotesIngestionService
-from app.routers import paper as paper_router
 
 
 def get_version() -> str:
@@ -401,173 +387,10 @@ async def lifespan(app: FastAPI):
         else:
             logger.info(f"🔍 Tushare状态检查已配置: {settings.TUSHARE_STATUS_CHECK_CRON}")
 
-        # AKShare统一数据同步任务配置
-        logger.info("🔄 配置AKShare统一数据同步任务...")
-
-        # 基础信息同步任务
-        scheduler.add_job(
-            run_akshare_basic_info_sync,
-            CronTrigger.from_crontab(settings.AKSHARE_BASIC_INFO_SYNC_CRON, timezone=settings.TIMEZONE),
-            id="akshare_basic_info_sync",
-            name="股票基础信息同步（AKShare）",
-            kwargs={"force_update": False}
-        )
-        if not (settings.AKSHARE_UNIFIED_ENABLED and settings.AKSHARE_BASIC_INFO_SYNC_ENABLED):
-            scheduler.pause_job("akshare_basic_info_sync")
-            logger.info(f"⏸️ AKShare基础信息同步已添加但暂停: {settings.AKSHARE_BASIC_INFO_SYNC_CRON}")
-        else:
-            logger.info(f"📅 AKShare基础信息同步已配置: {settings.AKSHARE_BASIC_INFO_SYNC_CRON}")
-
-        # 实时行情同步任务
-        scheduler.add_job(
-            run_akshare_quotes_sync,
-            CronTrigger.from_crontab(settings.AKSHARE_QUOTES_SYNC_CRON, timezone=settings.TIMEZONE),
-            id="akshare_quotes_sync",
-            name="实时行情同步（AKShare）"
-        )
-        if not (settings.AKSHARE_UNIFIED_ENABLED and settings.AKSHARE_QUOTES_SYNC_ENABLED):
-            scheduler.pause_job("akshare_quotes_sync")
-            logger.info(f"⏸️ AKShare行情同步已添加但暂停: {settings.AKSHARE_QUOTES_SYNC_CRON}")
-        else:
-            logger.info(f"📈 AKShare行情同步已配置: {settings.AKSHARE_QUOTES_SYNC_CRON}")
-
-        # 历史数据同步任务
-        scheduler.add_job(
-            run_akshare_historical_sync,
-            CronTrigger.from_crontab(settings.AKSHARE_HISTORICAL_SYNC_CRON, timezone=settings.TIMEZONE),
-            id="akshare_historical_sync",
-            name="历史数据同步（AKShare）",
-            kwargs={"incremental": True}
-        )
-        if not (settings.AKSHARE_UNIFIED_ENABLED and settings.AKSHARE_HISTORICAL_SYNC_ENABLED):
-            scheduler.pause_job("akshare_historical_sync")
-            logger.info(f"⏸️ AKShare历史数据同步已添加但暂停: {settings.AKSHARE_HISTORICAL_SYNC_CRON}")
-        else:
-            logger.info(f"📊 AKShare历史数据同步已配置: {settings.AKSHARE_HISTORICAL_SYNC_CRON}")
-
-        # 财务数据同步任务
-        scheduler.add_job(
-            run_akshare_financial_sync,
-            CronTrigger.from_crontab(settings.AKSHARE_FINANCIAL_SYNC_CRON, timezone=settings.TIMEZONE),
-            id="akshare_financial_sync",
-            name="财务数据同步（AKShare）"
-        )
-        if not (settings.AKSHARE_UNIFIED_ENABLED and settings.AKSHARE_FINANCIAL_SYNC_ENABLED):
-            scheduler.pause_job("akshare_financial_sync")
-            logger.info(f"⏸️ AKShare财务数据同步已添加但暂停: {settings.AKSHARE_FINANCIAL_SYNC_CRON}")
-        else:
-            logger.info(f"💰 AKShare财务数据同步已配置: {settings.AKSHARE_FINANCIAL_SYNC_CRON}")
-
-        # 状态检查任务
-        scheduler.add_job(
-            run_akshare_status_check,
-            CronTrigger.from_crontab(settings.AKSHARE_STATUS_CHECK_CRON, timezone=settings.TIMEZONE),
-            id="akshare_status_check",
-            name="数据源状态检查（AKShare）"
-        )
-        if not (settings.AKSHARE_UNIFIED_ENABLED and settings.AKSHARE_STATUS_CHECK_ENABLED):
-            scheduler.pause_job("akshare_status_check")
-            logger.info(f"⏸️ AKShare状态检查已添加但暂停: {settings.AKSHARE_STATUS_CHECK_CRON}")
-        else:
-            logger.info(f"🔍 AKShare状态检查已配置: {settings.AKSHARE_STATUS_CHECK_CRON}")
-
-        # BaoStock统一数据同步任务配置
-        logger.info("🔄 配置BaoStock统一数据同步任务...")
-
-        # 基础信息同步任务
-        scheduler.add_job(
-            run_baostock_basic_info_sync,
-            CronTrigger.from_crontab(settings.BAOSTOCK_BASIC_INFO_SYNC_CRON, timezone=settings.TIMEZONE),
-            id="baostock_basic_info_sync",
-            name="股票基础信息同步（BaoStock）"
-        )
-        if not (settings.BAOSTOCK_UNIFIED_ENABLED and settings.BAOSTOCK_BASIC_INFO_SYNC_ENABLED):
-            scheduler.pause_job("baostock_basic_info_sync")
-            logger.info(f"⏸️ BaoStock基础信息同步已添加但暂停: {settings.BAOSTOCK_BASIC_INFO_SYNC_CRON}")
-        else:
-            logger.info(f"📋 BaoStock基础信息同步已配置: {settings.BAOSTOCK_BASIC_INFO_SYNC_CRON}")
-
-        # 日K线同步任务（注意：BaoStock不支持实时行情）
-        scheduler.add_job(
-            run_baostock_daily_quotes_sync,
-            CronTrigger.from_crontab(settings.BAOSTOCK_DAILY_QUOTES_SYNC_CRON, timezone=settings.TIMEZONE),
-            id="baostock_daily_quotes_sync",
-            name="日K线数据同步（BaoStock）"
-        )
-        if not (settings.BAOSTOCK_UNIFIED_ENABLED and settings.BAOSTOCK_DAILY_QUOTES_SYNC_ENABLED):
-            scheduler.pause_job("baostock_daily_quotes_sync")
-            logger.info(f"⏸️ BaoStock日K线同步已添加但暂停: {settings.BAOSTOCK_DAILY_QUOTES_SYNC_CRON}")
-        else:
-            logger.info(f"📈 BaoStock日K线同步已配置: {settings.BAOSTOCK_DAILY_QUOTES_SYNC_CRON} (注意：BaoStock不支持实时行情)")
-
-        # 历史数据同步任务
-        scheduler.add_job(
-            run_baostock_historical_sync,
-            CronTrigger.from_crontab(settings.BAOSTOCK_HISTORICAL_SYNC_CRON, timezone=settings.TIMEZONE),
-            id="baostock_historical_sync",
-            name="历史数据同步（BaoStock）"
-        )
-        if not (settings.BAOSTOCK_UNIFIED_ENABLED and settings.BAOSTOCK_HISTORICAL_SYNC_ENABLED):
-            scheduler.pause_job("baostock_historical_sync")
-            logger.info(f"⏸️ BaoStock历史数据同步已添加但暂停: {settings.BAOSTOCK_HISTORICAL_SYNC_CRON}")
-        else:
-            logger.info(f"📊 BaoStock历史数据同步已配置: {settings.BAOSTOCK_HISTORICAL_SYNC_CRON}")
-
-        # 状态检查任务
-        scheduler.add_job(
-            run_baostock_status_check,
-            CronTrigger.from_crontab(settings.BAOSTOCK_STATUS_CHECK_CRON, timezone=settings.TIMEZONE),
-            id="baostock_status_check",
-            name="数据源状态检查（BaoStock）"
-        )
-        if not (settings.BAOSTOCK_UNIFIED_ENABLED and settings.BAOSTOCK_STATUS_CHECK_ENABLED):
-            scheduler.pause_job("baostock_status_check")
-            logger.info(f"⏸️ BaoStock状态检查已添加但暂停: {settings.BAOSTOCK_STATUS_CHECK_CRON}")
-        else:
-            logger.info(f"🔍 BaoStock状态检查已配置: {settings.BAOSTOCK_STATUS_CHECK_CRON}")
-
-        # 新闻数据同步任务配置（使用AKShare同步所有股票新闻）
-        logger.info("🔄 配置新闻数据同步任务...")
-
-        from app.worker.akshare_sync_service import get_akshare_sync_service
-
-        async def run_news_sync():
-            """运行新闻同步任务 - 使用AKShare同步自选股新闻"""
-            try:
-                logger.info("📰 开始新闻数据同步（AKShare - 仅自选股）...")
-                service = await get_akshare_sync_service()
-                result = await service.sync_news_data(
-                    symbols=None,  # None + favorites_only=True 表示只同步自选股
-                    max_news_per_stock=settings.NEWS_SYNC_MAX_PER_SOURCE,
-                    favorites_only=True  # 只同步自选股
-                )
-                logger.info(
-                    f"✅ 新闻同步完成: "
-                    f"处理{result['total_processed']}只自选股, "
-                    f"成功{result['success_count']}只, "
-                    f"失败{result['error_count']}只, "
-                    f"新闻总数{result['news_count']}条, "
-                    f"耗时{(datetime.utcnow() - result['start_time']).total_seconds():.2f}秒"
-                )
-            except Exception as e:
-                logger.error(f"❌ 新闻同步失败: {e}", exc_info=True)
-
         # ==================== 港股/美股数据配置 ====================
         # 港股和美股采用按需获取+缓存模式，不再配置定时同步任务
         logger.info("🇭🇰 港股数据采用按需获取+缓存模式")
         logger.info("🇺🇸 美股数据采用按需获取+缓存模式")
-
-        scheduler.add_job(
-            run_news_sync,
-            CronTrigger.from_crontab(settings.NEWS_SYNC_CRON, timezone=settings.TIMEZONE),
-            id="news_sync",
-            name="新闻数据同步（AKShare - 仅自选股）"
-        )
-        if not settings.NEWS_SYNC_ENABLED:
-            scheduler.pause_job("news_sync")
-            logger.info(f"⏸️ 新闻数据同步已添加但暂停: {settings.NEWS_SYNC_CRON}")
-        else:
-            logger.info(f"📰 新闻数据同步已配置（仅自选股）: {settings.NEWS_SYNC_CRON}")
 
         scheduler.start()
 
@@ -689,7 +512,6 @@ app.include_router(analysis.router, prefix="/api/analysis", tags=["analysis"])
 app.include_router(reports.router, tags=["reports"])
 app.include_router(screening.router, prefix="/api/screening", tags=["screening"])
 app.include_router(queue.router, prefix="/api/queue", tags=["queue"])
-app.include_router(favorites.router, prefix="/api", tags=["favorites"])
 app.include_router(stocks_router.router, prefix="/api", tags=["stocks"])
 app.include_router(multi_market_stocks_router.router, prefix="/api", tags=["multi-market"])
 app.include_router(stock_data_router.router, tags=["stock-data"])
@@ -718,10 +540,7 @@ app.include_router(scheduler_router.router, tags=["scheduler"])
 app.include_router(sse.router, prefix="/api/stream", tags=["streaming"])
 app.include_router(sync_router.router)
 app.include_router(multi_source_sync.router)
-app.include_router(paper_router.router, prefix="/api", tags=["paper"])
 app.include_router(tushare_init.router, prefix="/api", tags=["tushare-init"])
-app.include_router(akshare_init.router, prefix="/api", tags=["akshare-init"])
-app.include_router(baostock_init.router, prefix="/api", tags=["baostock-init"])
 app.include_router(historical_data.router, tags=["historical-data"])
 app.include_router(multi_period_sync.router, tags=["multi-period-sync"])
 app.include_router(financial_data.router, tags=["financial-data"])

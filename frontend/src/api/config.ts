@@ -84,28 +84,6 @@ export interface DataSourceConfig {
   updated_at?: string
 }
 
-// 市场分类配置
-export interface MarketCategory {
-  id: string
-  name: string
-  display_name: string
-  description?: string
-  enabled: boolean
-  sort_order: number
-  created_at?: string
-  updated_at?: string
-}
-
-// 数据源分组关系
-export interface DataSourceGrouping {
-  data_source_name: string
-  market_category_id: string
-  priority: number              // 在该分类中的优先级
-  enabled: boolean
-  created_at?: string
-  updated_at?: string
-}
-
 export interface DatabaseConfig {
   name: string
   type: string
@@ -147,6 +125,51 @@ export interface ConfigTestResponse {
   details?: Record<string, any>
 }
 
+// 🆕 简化的LLM配置（二级结构）
+export interface SimplifiedLLMConfig {
+  id: string
+  provider: string  // 厂家标识：openai, deepseek, qwen
+  provider_name: string  // 厂家显示名称
+  model_name: string  // 模型名称
+  model_display_name: string  // 模型显示名称
+  api_key?: string  // API密钥（可选）
+  api_base?: string  // API基础URL
+  max_tokens: number
+  temperature: number
+  timeout: number
+  enabled: boolean
+  is_default: boolean  // 是否为默认配置
+  // 定价信息
+  input_price?: number
+  output_price?: number
+  currency: string
+  // 能力标签
+  capabilities: string[]
+  suitable_for: string[]  // 适用的分析场景
+  description?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SimplifiedLLMConfigRequest {
+  provider: string
+  provider_name: string
+  model_name: string
+  model_display_name: string
+  api_key?: string
+  api_base?: string
+  max_tokens?: number
+  temperature?: number
+  timeout?: number
+  enabled?: boolean
+  is_default?: boolean
+  input_price?: number
+  output_price?: number
+  currency?: string
+  capabilities?: string[]
+  suitable_for?: string[]
+  description?: string
+}
 
 // 系统设置元数据
 export interface SettingMeta {
@@ -338,52 +361,6 @@ export const configApi = {
     return ApiClient.delete(`/api/config/datasource/${name}`)
   },
 
-  // 市场分类管理
-  getMarketCategories(): Promise<MarketCategory[]> {
-    return ApiClient.get('/api/config/market-categories')
-  },
-
-  addMarketCategory(category: Partial<MarketCategory>): Promise<{ message: string; id: string }> {
-    return ApiClient.post('/api/config/market-categories', category)
-  },
-
-  updateMarketCategory(id: string, category: Partial<MarketCategory>): Promise<{ message: string }> {
-    return ApiClient.put(`/api/config/market-categories/${id}`, category)
-  },
-
-  deleteMarketCategory(id: string): Promise<{ message: string }> {
-    return ApiClient.delete(`/api/config/market-categories/${id}`)
-  },
-
-  // 数据源分组管理
-  getDataSourceGroupings(): Promise<DataSourceGrouping[]> {
-    return ApiClient.get('/api/config/datasource-groupings')
-  },
-
-  addDataSourceToCategory(dataSourceName: string, categoryId: string, priority?: number): Promise<{ message: string }> {
-    return ApiClient.post('/api/config/datasource-groupings', {
-      data_source_name: dataSourceName,
-      market_category_id: categoryId,
-      priority: priority || 0,
-      enabled: true
-    })
-  },
-
-  removeDataSourceFromCategory(dataSourceName: string, categoryId: string): Promise<{ message: string }> {
-    return ApiClient.delete(`/api/config/datasource-groupings/${dataSourceName}/${categoryId}`)
-  },
-
-  updateDataSourceGrouping(dataSourceName: string, categoryId: string, updates: Partial<DataSourceGrouping>): Promise<{ message: string }> {
-    return ApiClient.put(`/api/config/datasource-groupings/${dataSourceName}/${categoryId}`, updates)
-  },
-
-  // 批量更新分类内数据源排序
-  updateCategoryDataSourceOrder(categoryId: string, orderedDataSources: Array<{name: string, priority: number}>): Promise<{ message: string }> {
-    return ApiClient.put(`/api/config/market-categories/${categoryId}/datasource-order`, {
-      data_sources: orderedDataSources
-    })
-  },
-
   // 获取系统设置元数据
   getSystemSettingsMeta(): Promise<{ items: SettingMeta[] }> {
     return ApiClient.get('/api/config/settings/meta').then((r: any) => r.data)
@@ -463,6 +440,43 @@ export const configApi = {
   // 配置重载
   reloadConfig(): Promise<{ success: boolean; message: string; data?: any }> {
     return ApiClient.post('/api/config/reload')
+  },
+
+  // ==================== 简化的LLM配置管理（二级结构）====================
+
+  // 获取所有简化的LLM配置
+  getSimplifiedLLMConfigs(): Promise<SimplifiedLLMConfig[]> {
+    return ApiClient.get('/api/config/llm/simplified')
+  },
+
+  // 获取单个简化的LLM配置
+  getSimplifiedLLMConfig(configId: string): Promise<SimplifiedLLMConfig> {
+    return ApiClient.get(`/api/config/llm/simplified/${configId}`)
+  },
+
+  // 添加简化的LLM配置
+  addSimplifiedLLMConfig(config: SimplifiedLLMConfigRequest): Promise<SimplifiedLLMConfig> {
+    return ApiClient.post('/api/config/llm/simplified', config)
+  },
+
+  // 更新简化的LLM配置
+  updateSimplifiedLLMConfig(configId: string, config: SimplifiedLLMConfigRequest): Promise<SimplifiedLLMConfig> {
+    return ApiClient.put(`/api/config/llm/simplified/${configId}`, config)
+  },
+
+  // 删除简化的LLM配置
+  deleteSimplifiedLLMConfig(configId: string): Promise<{ success: boolean; message: string }> {
+    return ApiClient.delete(`/api/config/llm/simplified/${configId}`)
+  },
+
+  // 设置默认LLM配置
+  setDefaultSimplifiedLLM(configId: string): Promise<{ success: boolean; message: string }> {
+    return ApiClient.post(`/api/config/llm/simplified/${configId}/set-default`)
+  },
+
+  // 测试简化的LLM配置
+  testSimplifiedLLMConfig(configId: string): Promise<{ success: boolean; message: string }> {
+    return ApiClient.post(`/api/config/llm/simplified/${configId}/test`)
   }
 }
 
@@ -530,50 +544,6 @@ export const DEFAULT_DATA_SOURCE_CONFIG: Partial<DataSourceConfig> = {
   config_params: {},
   market_categories: []
 }
-
-// 默认市场分类
-export const DEFAULT_MARKET_CATEGORIES: Partial<MarketCategory>[] = [
-  {
-    id: 'a_shares',
-    name: 'a_shares',
-    display_name: 'A股',
-    description: '中国A股市场数据源',
-    enabled: true,
-    sort_order: 1
-  },
-  {
-    id: 'us_stocks',
-    name: 'us_stocks',
-    display_name: '美股',
-    description: '美国股票市场数据源',
-    enabled: true,
-    sort_order: 2
-  },
-  {
-    id: 'hk_stocks',
-    name: 'hk_stocks',
-    display_name: '港股',
-    description: '香港股票市场数据源',
-    enabled: true,
-    sort_order: 3
-  },
-  {
-    id: 'crypto',
-    name: 'crypto',
-    display_name: '数字货币',
-    description: '数字货币市场数据源',
-    enabled: true,
-    sort_order: 4
-  },
-  {
-    id: 'futures',
-    name: 'futures',
-    display_name: '期货',
-    description: '期货市场数据源',
-    enabled: true,
-    sort_order: 5
-  }
-]
 
 export const DEFAULT_DATABASE_CONFIG: Partial<DatabaseConfig> = {
   pool_size: 10,

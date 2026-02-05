@@ -44,6 +44,10 @@
               <el-icon><Cpu /></el-icon>
               <span>大模型配置</span>
             </el-menu-item>
+            <el-menu-item index="llm-simplified">
+              <el-icon><MagicStick /></el-icon>
+              <span>简化LLM配置</span>
+            </el-menu-item>
             <el-menu-item index="datasource">
               <el-icon><DataBoard /></el-icon>
               <span>数据源配置</span>
@@ -78,6 +82,11 @@
         <!-- 模型目录管理 -->
         <div v-show="activeTab === 'model-catalog'">
           <ModelCatalogManagement />
+        </div>
+
+        <!-- 简化LLM配置 -->
+        <div v-show="activeTab === 'llm-simplified'">
+          <SimplifiedLLMConfig />
         </div>
 
         <!-- 厂家管理 -->
@@ -369,78 +378,45 @@
           <template #header>
             <div class="card-header">
               <h3>数据源配置</h3>
-              <div class="header-actions">
-                <el-button @click="showMarketCategoryManagement">
-                  <el-icon><Setting /></el-icon>
-                  管理分类
-                </el-button>
-                <el-button type="primary" @click="showAddDataSourceDialog">
-                  <el-icon><Plus /></el-icon>
-                  添加数据源
-                </el-button>
-              </div>
+              <el-button type="primary" @click="showAddDataSourceDialog">
+                <el-icon><Plus /></el-icon>
+                添加数据源
+              </el-button>
             </div>
           </template>
 
           <div v-loading="dataSourceLoading" class="datasource-content">
-            <!-- 数据源分组展示 -->
-            <div v-if="dataSourceGroups.length > 0" class="datasource-groups">
-              <SortableDataSourceList
-                v-for="group in dataSourceGroups"
-                :key="group.categoryId"
-                :category-id="group.categoryId"
-                :category-display-name="group.categoryDisplayName"
-                :data-sources="group.dataSources"
-                @update-order="handleUpdateDataSourceOrder"
-                @edit-datasource="editDataSourceConfig"
-                @manage-grouping="showDataSourceGroupingDialog"
-                @manage-category="showMarketCategoryManagement"
-                @add-datasource="showAddDataSourceDialog"
-                @delete-datasource="deleteDataSourceConfig"
-              />
-            </div>
-
-            <!-- 未分组的数据源 -->
-            <div v-if="ungroupedDataSources.length > 0" class="ungrouped-section">
-              <el-card shadow="never">
-                <template #header>
-                  <div class="section-header">
-                    <h4>未分组数据源</h4>
-                    <el-tag type="warning" size="small">{{ ungroupedDataSources.length }} 个</el-tag>
+            <!-- 简单数据源列表 -->
+            <el-table :data="dataSourceConfigs" style="width: 100%" stripe>
+              <el-table-column label="数据源名称" width="200">
+                <template #default="{ row }">
+                  <div class="datasource-name-cell">
+                    <div class="datasource-display-name">{{ row.display_name || row.name }}</div>
+                    <div class="datasource-code-text">{{ row.name }}</div>
                   </div>
                 </template>
+              </el-table-column>
 
-                <div class="ungrouped-list">
-                  <div
-                    v-for="dataSource in ungroupedDataSources"
-                    :key="dataSource.name"
-                    class="ungrouped-item"
-                  >
-                    <div class="item-info">
-                      <span class="item-name">{{ dataSource.display_name || dataSource.name }}</span>
-                      <el-tag :type="dataSource.enabled ? 'success' : 'danger'" size="small">
-                        {{ dataSource.enabled ? '启用' : '禁用' }}
-                      </el-tag>
-                      <span class="item-type">{{ dataSource.type }}</span>
-                    </div>
-                    <div class="item-actions">
-                      <el-button size="small" @click="editDataSourceConfig(dataSource)">
-                        编辑
-                      </el-button>
-                      <el-button size="small" @click="showDataSourceGroupingDialog(dataSource.name)">
-                        分组
-                      </el-button>
-                      <el-button size="small" type="primary" @click="testDataSource(dataSource)">
-                        测试
-                      </el-button>
-                      <el-button size="small" type="danger" @click="deleteDataSourceConfig(dataSource)">
-                        删除
-                      </el-button>
-                    </div>
-                  </div>
-                </div>
-              </el-card>
-            </div>
+              <el-table-column prop="type" label="类型" width="120" />
+
+              <el-table-column label="状态" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="row.enabled ? 'success' : 'danger'" size="small">
+                    {{ row.enabled ? '启用' : '禁用' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column prop="description" label="描述" />
+
+              <el-table-column label="操作" width="240" fixed="right">
+                <template #default="{ row }">
+                  <el-button size="small" @click="editDataSourceConfig(row)">编辑</el-button>
+                  <el-button size="small" type="primary" @click="testDataSource(row)">测试</el-button>
+                  <el-button size="small" type="danger" @click="deleteDataSourceConfig(row)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
 
             <!-- 空状态 -->
             <div v-if="dataSourceConfigs.length === 0" class="empty-state">
@@ -960,23 +936,6 @@
       @success="handleDataSourceConfigSuccess"
     />
 
-    <!-- 市场分类管理对话框 -->
-    <el-dialog
-      v-model="marketCategoryManagementVisible"
-      title="市场分类管理"
-      width="80%"
-      :close-on-click-modal="false"
-    >
-      <MarketCategoryManagement @success="handleMarketCategorySuccess" />
-    </el-dialog>
-
-    <!-- 数据源分组对话框 -->
-    <DataSourceGroupingDialog
-      v-model:visible="dataSourceGroupingDialogVisible"
-      :data-source-name="currentDataSourceName"
-      @success="handleDataSourceGroupingSuccess"
-    />
-
     <!-- 数据库配置对话框 -->
     <el-dialog
       v-model="databaseDialogVisible"
@@ -1099,8 +1058,6 @@ import {
   type LLMConfig,
   type DataSourceConfig,
   type DatabaseConfig,
-  type MarketCategory,
-  type DataSourceGrouping,
   type SettingMeta
 } from '@/api/config'
 import ConfigValidator from '@/components/ConfigValidator.vue'
@@ -1108,9 +1065,7 @@ import LLMConfigDialog from './components/LLMConfigDialog.vue'
 import ProviderDialog from './components/ProviderDialog.vue'
 import ModelCatalogManagement from './components/ModelCatalogManagement.vue'
 import DataSourceConfigDialog from './components/DataSourceConfigDialog.vue'
-import MarketCategoryManagement from './components/MarketCategoryManagement.vue'
-import DataSourceGroupingDialog from './components/DataSourceGroupingDialog.vue'
-import SortableDataSourceList from './components/SortableDataSourceList.vue'
+import SimplifiedLLMConfig from './components/SimplifiedLLMConfig.vue'
 
 // 响应式数据
 const activeTab = ref('validation')
@@ -1126,12 +1081,6 @@ const defaultLLM = ref<string>('')
 // 厂家信息映射
 const providerInfoMap = ref<Record<string, any>>({})
 const defaultDataSource = ref<string>('')
-
-// 新增：数据源分组相关
-const marketCategories = ref<MarketCategory[]>([])
-const dataSourceGroupings = ref<DataSourceGrouping[]>([])
-const dataSourceGroups = ref<any[]>([])
-const ungroupedDataSources = ref<DataSourceConfig[]>([])
 
 // 加载状态
 const providersLoading = ref(false)
@@ -1152,9 +1101,6 @@ const currentProvider = ref<Partial<LLMProvider>>({})
 // 新增：数据源相关对话框
 const dataSourceDialogVisible = ref(false)
 const currentDataSourceConfig = ref<DataSourceConfig | null>(null)
-const marketCategoryManagementVisible = ref(false)
-const dataSourceGroupingDialogVisible = ref(false)
-const currentDataSourceName = ref<string>('')
 
 // 新增：数据库配置对话框
 const databaseDialogVisible = ref(false)
@@ -1332,86 +1278,11 @@ const loadDataSourceConfigs = async () => {
     // 获取默认数据源
     const systemConfig = await configApi.getSystemConfig()
     defaultDataSource.value = systemConfig.default_data_source || ''
-
-    // 加载分组相关数据
-    await loadMarketCategories()
-    await loadDataSourceGroupings()
-    buildDataSourceGroups()
   } catch (error) {
     ElMessage.error('加载数据源配置失败')
   } finally {
     dataSourceLoading.value = false
   }
-}
-
-// 加载市场分类
-const loadMarketCategories = async () => {
-  try {
-    marketCategories.value = await configApi.getMarketCategories()
-  } catch (error) {
-    console.error('加载市场分类失败:', error)
-  }
-}
-
-// 加载数据源分组关系
-const loadDataSourceGroupings = async () => {
-  try {
-    dataSourceGroupings.value = await configApi.getDataSourceGroupings()
-  } catch (error) {
-    console.error('加载数据源分组关系失败:', error)
-  }
-}
-
-// 构建数据源分组
-const buildDataSourceGroups = () => {
-  const groups: any[] = []
-  const ungrouped: DataSourceConfig[] = []
-
-  // 按分类分组
-  marketCategories.value.forEach(category => {
-    const categoryGroupings = dataSourceGroupings.value.filter(
-      g => g.market_category_id === category.id
-    )
-
-    if (categoryGroupings.length > 0) {
-      const dataSources = categoryGroupings
-        .map(grouping => {
-          const dataSource = dataSourceConfigs.value.find(
-            ds => ds.name === grouping.data_source_name
-          )
-          if (dataSource) {
-            return {
-              ...dataSource,
-              priority: grouping.priority,
-              enabled: grouping.enabled
-            }
-          }
-          return null
-        })
-        .filter(Boolean)
-        .sort((a, b) => b.priority - a.priority) // 按优先级降序排列
-
-      groups.push({
-        categoryId: category.id,
-        categoryDisplayName: category.display_name,
-        dataSources
-      })
-    }
-  })
-
-  // 找出未分组的数据源
-  const groupedDataSourceNames = new Set(
-    dataSourceGroupings.value.map(g => g.data_source_name)
-  )
-
-  dataSourceConfigs.value.forEach(dataSource => {
-    if (!groupedDataSourceNames.has(dataSource.name)) {
-      ungrouped.push(dataSource)
-    }
-  })
-
-  dataSourceGroups.value = groups
-  ungroupedDataSources.value = ungrouped
 }
 
 const loadDatabaseConfigs = async () => {
@@ -1873,46 +1744,9 @@ const editDataSourceConfig = (config: DataSourceConfig) => {
   dataSourceDialogVisible.value = true
 }
 
-// 显示市场分类管理
-const showMarketCategoryManagement = () => {
-  marketCategoryManagementVisible.value = true
-}
-
-// 显示数据源分组对话框
-const showDataSourceGroupingDialog = (dataSourceName: string) => {
-  currentDataSourceName.value = dataSourceName
-  dataSourceGroupingDialogVisible.value = true
-}
-
-// 处理数据源排序更新
-const handleUpdateDataSourceOrder = async (categoryId: string, orderedItems: Array<{name: string, priority: number}>) => {
-  try {
-    await configApi.updateCategoryDataSourceOrder(categoryId, orderedItems)
-    ElMessage.success('排序更新成功')
-    // 重新加载数据
-    await loadDataSourceGroupings()
-    buildDataSourceGroups()
-  } catch (error) {
-    console.error('更新排序失败:', error)
-    ElMessage.error('更新排序失败')
-  }
-}
-
 // 数据源配置成功回调
 const handleDataSourceConfigSuccess = () => {
   loadDataSourceConfigs()
-}
-
-// 市场分类管理成功回调
-const handleMarketCategorySuccess = () => {
-  loadMarketCategories()
-  buildDataSourceGroups()
-}
-
-// 数据源分组成功回调
-const handleDataSourceGroupingSuccess = () => {
-  loadDataSourceGroupings()
-  buildDataSourceGroups()
 }
 
 const setDefaultDataSource = async (name: string) => {
@@ -2585,6 +2419,21 @@ onMounted(async () => {
 
   .text-muted {
     color: var(--el-text-color-placeholder);
+  }
+
+  // 数据源列表样式
+  .datasource-name-cell {
+    .datasource-display-name {
+      font-weight: 500;
+      color: var(--el-text-color-primary);
+    }
+
+    .datasource-code-text {
+      font-size: 12px;
+      color: var(--el-text-color-placeholder);
+      font-family: 'Courier New', monospace;
+      margin-top: 4px;
+    }
   }
 
   // 保留旧的卡片样式（如果其他地方还在使用）

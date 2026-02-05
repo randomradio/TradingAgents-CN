@@ -478,4 +478,176 @@ class ConfigTestResponse(BaseModel):
     success: bool
     message: str
     details: Optional[Dict[str, Any]] = None
-    response_time: Optional[float] = None
+
+
+# ==================== 简化的LLM配置模型 ====================
+
+class SimplifiedLLMConfig(BaseModel):
+    """
+    简化的LLM配置模型 - 厂家+模型二级结构
+
+    从复杂的三级结构(厂家管理 → 模型目录 → LLM配置)简化为二级结构
+    直接将厂家和模型信息合并为一个配置对象
+    """
+
+    # 主键
+    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
+
+    # ==================== 厂家信息 ====================
+    provider: str = Field(
+        ...,
+        description="厂家标识 (如: openai, deepseek, qwen, anthropic)"
+    )
+    provider_name: str = Field(
+        ...,
+        description="厂家显示名称 (如: OpenAI, DeepSeek, 通义千问, Claude)"
+    )
+
+    # ==================== 模型信息 ====================
+    model_name: str = Field(
+        ...,
+        description="模型名称 (如: gpt-4, deepseek-chat, qwen-turbo)"
+    )
+    model_display_name: str = Field(
+        ...,
+        description="模型显示名称 (如: GPT-4, DeepSeek V3, 通义千问 Turbo)"
+    )
+
+    # ==================== API配置 ====================
+    api_key: Optional[str] = Field(
+        None,
+        description="API密钥（可选，优先从环境变量或全局配置获取）"
+    )
+    api_base: Optional[str] = Field(
+        None,
+        description="API基础URL（可选，使用厂家默认值）"
+    )
+
+    # ==================== 模型参数 ====================
+    max_tokens: int = Field(
+        default=4000,
+        ge=1,
+        le=128000,
+        description="最大输出token数"
+    )
+    temperature: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=2.0,
+        description="温度参数 (0-2, 越高越随机)"
+    )
+    timeout: int = Field(
+        default=180,
+        ge=10,
+        le=600,
+        description="请求超时时间(秒)"
+    )
+
+    # ==================== 状态配置 ====================
+    enabled: bool = Field(
+        default=True,
+        description="是否启用此配置"
+    )
+    is_default: bool = Field(
+        default=False,
+        description="是否为默认模型（全局只能有一个）"
+    )
+
+    # ==================== 定价信息 ====================
+    input_price: Optional[float] = Field(
+        None,
+        ge=0,
+        description="输入价格(每1K tokens, 单位由currency决定)"
+    )
+    output_price: Optional[float] = Field(
+        None,
+        ge=0,
+        description="输出价格(每1K tokens, 单位由currency决定)"
+    )
+    currency: str = Field(
+        default="CNY",
+        description="货币单位 (CNY, USD, EUR等)"
+    )
+
+    # ==================== 能力标签 ====================
+    capabilities: List[str] = Field(
+        default_factory=list,
+        description="能力标签 (如: vision, function_calling, streaming, long_context)"
+    )
+
+    # ==================== 适用场景 ====================
+    suitable_for: List[str] = Field(
+        default_factory=list,
+        description="适用场景 (如: quick_analysis, deep_analysis, both)"
+    )
+
+    # ==================== 描述信息 ====================
+    description: Optional[str] = Field(
+        None,
+        description="配置描述（此模型的用途、特点等）"
+    )
+
+    # ==================== 元数据 ====================
+    created_at: Optional[datetime] = Field(default_factory=now_tz)
+    updated_at: Optional[datetime] = Field(default_factory=now_tz)
+
+    # Pydantic配置
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={
+            datetime: lambda v: v.isoformat()
+        }
+    )
+
+    @field_serializer('created_at', 'updated_at')
+    def serialize_datetime(self, dt: Optional[datetime], _info) -> Optional[str]:
+        """序列化 datetime 为 ISO 8601 格式，保留时区信息"""
+        if dt:
+            return dt.isoformat()
+        return None
+
+
+class SimplifiedLLMConfigRequest(BaseModel):
+    """简化的LLM配置请求模型（用于创建/更新）"""
+    provider: str = Field(..., description="厂家标识")
+    provider_name: str = Field(..., description="厂家显示名称")
+    model_name: str = Field(..., description="模型名称")
+    model_display_name: str = Field(..., description="模型显示名称")
+    api_key: Optional[str] = Field(None, description="API密钥")
+    api_base: Optional[str] = Field(None, description="API基础URL")
+    max_tokens: int = Field(default=4000, ge=1, le=128000, description="最大token数")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="温度参数")
+    timeout: int = Field(default=180, ge=10, le=600, description="超时时间(秒)")
+    enabled: bool = Field(default=True, description="是否启用")
+    is_default: bool = Field(default=False, description="是否为默认模型")
+    input_price: Optional[float] = Field(None, ge=0, description="输入价格")
+    output_price: Optional[float] = Field(None, ge=0, description="输出价格")
+    currency: str = Field(default="CNY", description="货币单位")
+    capabilities: List[str] = Field(default_factory=list, description="能力标签")
+    suitable_for: List[str] = Field(default_factory=list, description="适用场景")
+    description: Optional[str] = Field(None, description="配置描述")
+
+
+class SimplifiedLLMConfigResponse(BaseModel):
+    """简化的LLM配置响应模型（用于API响应）"""
+    id: str
+    provider: str
+    provider_name: str
+    model_name: str
+    model_display_name: str
+    api_key: Optional[str] = None  # 脱敏处理
+    api_base: Optional[str] = None
+    max_tokens: int
+    temperature: float
+    timeout: int
+    enabled: bool
+    is_default: bool
+    input_price: Optional[float] = None
+    output_price: Optional[float] = None
+    currency: str
+    capabilities: List[str]
+    suitable_for: List[str]
+    description: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
