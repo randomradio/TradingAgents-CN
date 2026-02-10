@@ -21,7 +21,7 @@ services:
       # 数据目录映射
       - ./data:/app/data
     env_file:
-      - .env
+      - .env.docker
     environment:
       PYTHONUNBUFFERED: 1
       PYTHONDONTWRITEBYTECODE: 1
@@ -98,7 +98,7 @@ services:
     container_name: tradingagents-mongodb
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "37017:27017"  # Non-default port: 37017 instead of 27017
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: tradingagents123
@@ -127,7 +127,7 @@ services:
     container_name: tradingagents-redis
     restart: unless-stopped
     ports:
-      - "6380:6379"  # 修改主机端口为6380，避免与其他Redis实例冲突
+      - "7379:6379"  # Non-default port: 7379 instead of 6379/6380
     environment:
       TZ: "Asia/Shanghai"
     command: redis-server --appendonly yes --requirepass tradingagents123

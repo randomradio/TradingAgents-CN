@@ -393,7 +393,32 @@ class ModelCapabilityService:
         return quick_model, deep_model
     
     def _get_default_models(self) -> Tuple[str, str]:
-        """获取默认模型对"""
+        """获取默认模型对 - 从MongoDB读取配置的LLM提供商"""
+        try:
+            # 直接从MongoDB llm_providers集合读取
+            from app.core.database import get_mongo_db
+            from pymongo import MongoClient
+            from app.core.config import settings
+
+            # 使用同步客户端读取
+            client = MongoClient(settings.MONGO_URI)
+            db = client[settings.MONGO_DB]
+
+            # 查找启用的LLM提供商
+            providers = list(db.llm_providers.find({"is_active": True, "enabled": True}))
+            client.close()
+
+            if providers:
+                # 使用第一个启用的提供商的模型
+                provider = providers[0]
+                model = provider.get("model", "deepseek-chat")
+                logger.info(f"使用MongoDB配置的模型: {model} (provider: {provider.get('name')})")
+                # 对于简化配置，快速和深度使用同一个模型
+                return model, model
+        except Exception as e:
+            logger.error(f"从MongoDB获取默认模型失败: {e}")
+
+        # 如果MongoDB读取失败，尝试unified_config
         try:
             quick_model = unified_config.get_quick_analysis_model()
             deep_model = unified_config.get_deep_analysis_model()

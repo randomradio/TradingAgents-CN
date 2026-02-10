@@ -32,21 +32,9 @@
               <el-icon><CircleCheck /></el-icon>
               <span>配置验证</span>
             </el-menu-item>
-            <el-menu-item index="providers">
-              <el-icon><OfficeBuilding /></el-icon>
-              <span>厂家管理</span>
-            </el-menu-item>
-            <el-menu-item index="model-catalog">
-              <el-icon><Collection /></el-icon>
-              <span>模型目录</span>
-            </el-menu-item>
             <el-menu-item index="llm">
               <el-icon><Cpu /></el-icon>
               <span>大模型配置</span>
-            </el-menu-item>
-            <el-menu-item index="llm-simplified">
-              <el-icon><MagicStick /></el-icon>
-              <span>简化LLM配置</span>
             </el-menu-item>
             <el-menu-item index="datasource">
               <el-icon><DataBoard /></el-icon>
@@ -59,10 +47,6 @@
             <el-menu-item index="system">
               <el-icon><Tools /></el-icon>
               <span>系统设置</span>
-            </el-menu-item>
-            <el-menu-item index="api-keys">
-              <el-icon><Key /></el-icon>
-              <span>API密钥状态</span>
             </el-menu-item>
             <el-menu-item index="import-export">
               <el-icon><Download /></el-icon>
@@ -79,299 +63,10 @@
           <ConfigValidator />
         </div>
 
-        <!-- 模型目录管理 -->
-        <div v-show="activeTab === 'model-catalog'">
-          <ModelCatalogManagement />
+        <!-- 大模型配置 (简化版) -->
+        <div v-show="activeTab === 'llm'">
+          <LLMSettings />
         </div>
-
-        <!-- 简化LLM配置 -->
-        <div v-show="activeTab === 'llm-simplified'">
-          <SimplifiedLLMConfig />
-        </div>
-
-        <!-- 厂家管理 -->
-        <el-card v-show="activeTab === 'providers'" class="config-content" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <h3>大模型厂家管理</h3>
-              <el-button type="primary" @click="showAddProviderDialog">
-                <el-icon><Plus /></el-icon>
-                添加厂家
-              </el-button>
-            </div>
-          </template>
-
-          <div v-loading="providersLoading">
-            <el-table :data="providers" style="width: 100%">
-              <el-table-column label="厂家信息" width="200">
-                <template #default="{ row }">
-                  <div class="provider-info">
-                    <div class="provider-name">{{ row.display_name }}</div>
-                    <div class="provider-id">{{ row.name }}</div>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column label="API密钥" width="120">
-                <template #default="{ row }">
-                  <div class="api-key-status">
-                    <el-tag
-                      :type="row.extra_config?.has_api_key ? 'success' : 'danger'"
-                      size="small"
-                    >
-                      {{ row.extra_config?.has_api_key ? '已配置' : '未配置' }}
-                    </el-tag>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column prop="description" label="描述" />
-              <el-table-column label="状态" width="120">
-                <template #default="{ row }">
-                  <div class="status-column">
-                    <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
-                      {{ row.is_active ? '启用' : '禁用' }}
-                    </el-tag>
-                    <el-tag
-                      v-if="row.extra_config?.has_api_key"
-                      :type="row.extra_config?.source === 'environment' ? 'warning' : 'success'"
-                      size="small"
-                      class="key-source-tag"
-                    >
-                      {{ row.extra_config?.source === 'environment' ? 'ENV' : 'DB' }}
-                    </el-tag>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column label="支持功能" width="200">
-                <template #default="{ row }">
-                  <div class="features">
-                    <el-tag
-                      v-for="feature in row.supported_features"
-                      :key="feature"
-                      size="small"
-                      class="feature-tag"
-                    >
-                      {{ feature }}
-                    </el-tag>
-                  </div>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="280" fixed="right">
-                <template #default="{ row }">
-                  <el-button
-                    size="small"
-                    @click.stop="editProvider(row)"
-                  >
-                    编辑
-                  </el-button>
-                  <el-button
-                    v-if="row.extra_config?.has_api_key"
-                    size="small"
-                    type="info"
-                    @click.stop="testProviderAPI(row)"
-                    :loading="testingProviders[row.id]"
-                  >
-                    测试
-                  </el-button>
-                  <el-button
-                    size="small"
-                    :type="row.is_active ? 'warning' : 'success'"
-                    @click.stop="toggleProvider(row)"
-                  >
-                    {{ row.is_active ? '禁用' : '启用' }}
-                  </el-button>
-                  <el-button
-                    size="small"
-                    type="danger"
-                    @click.stop="deleteProvider(row)"
-                  >
-                    删除
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-        </el-card>
-
-        <!-- 大模型配置 -->
-        <el-card v-show="activeTab === 'llm'" class="config-content" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <h3>大模型配置</h3>
-              <el-button type="primary" @click="showAddLLMDialog">
-                <el-icon><Plus /></el-icon>
-                添加模型
-              </el-button>
-            </div>
-          </template>
-
-          <div v-loading="llmLoading">
-            <!-- 按厂家分组的卡片式布局 -->
-            <div v-if="llmConfigGroups.length === 0" class="empty-state">
-              <el-empty description="暂无大模型配置">
-                <el-button type="primary" @click="showAddLLMDialog">
-                  <el-icon><Plus /></el-icon>
-                  添加第一个模型
-                </el-button>
-              </el-empty>
-            </div>
-
-            <div v-else class="provider-groups">
-              <div
-                v-for="group in llmConfigGroups"
-                :key="group.provider"
-                class="provider-group"
-              >
-                <!-- 厂家头部 -->
-                <div class="provider-header">
-                  <div class="provider-info">
-                    <el-tag :type="getProviderTagType(group.provider)" size="large" class="provider-tag">
-                      <el-icon><OfficeBuilding /></el-icon>
-                      {{ group.display_name }}
-                    </el-tag>
-                    <span class="model-count">{{ group.models.length }} 个模型</span>
-                    <el-tag
-                      :type="group.is_active ? 'success' : 'danger'"
-                      size="small"
-                      class="status-tag"
-                    >
-                      {{ group.is_active ? '已启用' : '已禁用' }}
-                    </el-tag>
-                  </div>
-                  <div class="provider-actions">
-                    <el-button
-                      size="small"
-                      type="primary"
-                      @click="addModelToProvider(group)"
-                    >
-                      <el-icon><Plus /></el-icon>
-                      添加模型
-                    </el-button>
-                    <el-button
-                      size="small"
-                      :type="group.is_active ? 'warning' : 'success'"
-                      @click="toggleProviderStatus(group)"
-                    >
-                      {{ group.is_active ? '禁用' : '启用' }}
-                    </el-button>
-                  </div>
-                </div>
-
-                <!-- 模型列表 - 表格式布局 -->
-                <el-table :data="group.models" style="width: 100%" stripe>
-                  <!-- 模型名称 -->
-                  <el-table-column label="模型名称" width="200">
-                    <template #default="{ row }">
-                      <div class="model-name-cell">
-                        <div class="model-display-name">
-                          {{ row.model_display_name || row.model_name }}
-                        </div>
-                        <div v-if="row.model_display_name" class="model-code-text">{{ row.model_name }}</div>
-                      </div>
-                    </template>
-                  </el-table-column>
-
-                  <!-- 状态 -->
-                  <el-table-column label="状态" width="80" align="center">
-                    <template #default="{ row }">
-                      <el-tag :type="row.enabled ? 'success' : 'danger'" size="small">
-                        {{ row.enabled ? '启用' : '禁用' }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-
-                  <!-- 基础配置 -->
-                  <el-table-column label="基础配置" width="200">
-                    <template #default="{ row }">
-                      <div class="config-cell">
-                        <div>Token: {{ row.max_tokens }}</div>
-                        <div>温度: {{ row.temperature }} | 超时: {{ row.timeout }}s</div>
-                      </div>
-                    </template>
-                  </el-table-column>
-
-                  <!-- 定价 -->
-                  <el-table-column label="定价" width="180">
-                    <template #default="{ row }">
-                      <div v-if="row.input_price_per_1k || row.output_price_per_1k" class="pricing-cell">
-                        <div>输入: {{ formatPrice(row.input_price_per_1k) }} {{ row.currency || 'CNY' }}/1K</div>
-                        <div>输出: {{ formatPrice(row.output_price_per_1k) }} {{ row.currency || 'CNY' }}/1K</div>
-                      </div>
-                      <span v-else class="text-muted">-</span>
-                    </template>
-                  </el-table-column>
-
-                  <!-- 模型能力 -->
-                  <el-table-column label="模型能力" width="280">
-                    <template #default="{ row }">
-                      <div class="capability-cell">
-                        <div v-if="row.capability_level" class="capability-row-item">
-                          <span class="label">等级:</span>
-                          <el-tag :type="getCapabilityLevelType(row.capability_level)" size="small">
-                            {{ getCapabilityLevelText(row.capability_level) }}
-                          </el-tag>
-                        </div>
-                        <div v-if="row.suitable_roles && row.suitable_roles.length > 0" class="capability-row-item">
-                          <span class="label">角色:</span>
-                          <el-tag
-                            v-for="role in row.suitable_roles"
-                            :key="role"
-                            type="info"
-                            size="small"
-                            style="margin-right: 4px;"
-                          >
-                            {{ getRoleText(role) }}
-                          </el-tag>
-                        </div>
-                        <div v-if="row.recommended_depths && row.recommended_depths.length > 0" class="capability-row-item">
-                          <span class="label">深度:</span>
-                          <el-tag
-                            v-for="depth in row.recommended_depths"
-                            :key="depth"
-                            type="success"
-                            size="small"
-                            style="margin-right: 4px;"
-                          >
-                            {{ depth }}
-                          </el-tag>
-                        </div>
-                      </div>
-                    </template>
-                  </el-table-column>
-
-                  <!-- 操作 -->
-                  <el-table-column label="操作" width="260" fixed="right">
-                    <template #default="{ row }">
-                      <el-button size="small" @click="editLLMConfig(row)">
-                        编辑
-                      </el-button>
-                      <el-button
-                        size="small"
-                        type="primary"
-                        @click="testLLMConfig(row)"
-                      >
-                        测试
-                      </el-button>
-                      <el-button
-                        size="small"
-                        :type="row.enabled ? 'warning' : 'success'"
-                        @click="toggleLLMConfig(row)"
-                      >
-                        {{ row.enabled ? '禁用' : '启用' }}
-                      </el-button>
-                      <el-button
-                        size="small"
-                        type="danger"
-                        @click="deleteLLMConfig(row)"
-                      >
-                        删除
-                      </el-button>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
-            </div>
-          </div>
-        </el-card>
 
         <!-- 数据源配置 -->
         <el-card v-show="activeTab === 'datasource'" class="config-content" shadow="never">
@@ -751,122 +446,6 @@
           </el-form>
         </el-card>
 
-        <!-- API密钥状态 -->
-        <el-card v-show="activeTab === 'api-keys'" class="config-content" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <h3>API密钥状态</h3>
-              <el-button @click="loadProviders" :loading="providersLoading">
-                <el-icon><Refresh /></el-icon>
-                刷新状态
-              </el-button>
-            </div>
-          </template>
-
-          <div class="api-keys-content" v-loading="providersLoading">
-            <el-row :gutter="24">
-              <el-col :span="12">
-                <h4>🔑 AI厂家密钥状态</h4>
-                <div
-                  v-for="provider in providers"
-                  :key="provider.id"
-                  class="api-key-item"
-                >
-                  <el-icon><Key /></el-icon>
-                  <span class="key-name">{{ provider.display_name }}</span>
-                  <el-tag
-                    :type="getKeyStatusType(provider)"
-                    size="small"
-                  >
-                    {{ getKeyStatusText(provider) }}
-                  </el-tag>
-                  <el-button
-                    v-if="!provider.extra_config?.has_api_key"
-                    size="small"
-                    type="primary"
-                    link
-                    @click="editProvider(provider)"
-                  >
-                    配置
-                  </el-button>
-                </div>
-
-                <div v-if="providers.length === 0" class="empty-state">
-                  <el-empty description="暂无厂家配置">
-                    <el-button type="primary" @click="activeTab = 'providers'">
-                      添加厂家
-                    </el-button>
-                  </el-empty>
-                </div>
-              </el-col>
-
-              <el-col :span="12">
-                <h4>📊 配置统计</h4>
-                <div class="stats-grid">
-                  <div class="stat-item">
-                    <div class="stat-number">{{ providers.length }}</div>
-                    <div class="stat-label">总厂家数</div>
-                  </div>
-                  <div class="stat-item">
-                    <div class="stat-number">{{ configuredProvidersCount }}</div>
-                    <div class="stat-label">已配置密钥</div>
-                  </div>
-                  <div class="stat-item">
-                    <div class="stat-number">{{ activeProvidersCount }}</div>
-                    <div class="stat-label">启用厂家</div>
-                  </div>
-                  <div class="stat-item">
-                    <div class="stat-number">{{ llmConfigs.length }}</div>
-                    <div class="stat-label">配置模型</div>
-                  </div>
-                </div>
-              </el-col>
-            </el-row>
-
-            <el-divider />
-
-            <div class="api-key-help">
-              <h4>💡 配置说明</h4>
-              <el-row :gutter="16">
-                <el-col :span="8">
-                  <el-card shadow="never" class="help-card">
-                    <h5>如何配置API密钥？</h5>
-                    <ol>
-                      <li>在"厂家管理"中添加AI厂家</li>
-                      <li>编辑厂家信息，填入API密钥</li>
-                      <li>在"大模型配置"中选择厂家和模型</li>
-                      <li>系统自动使用厂家的API密钥</li>
-                    </ol>
-                  </el-card>
-                </el-col>
-                <el-col :span="8">
-                  <el-card shadow="never" class="help-card">
-                    <h5>🔄 从环境变量迁移</h5>
-                    <p>如果你之前在 .env 文件中配置了API密钥，可以一键迁移到厂家管理：</p>
-                    <el-button
-                      type="primary"
-                      @click="migrateFromEnv"
-                      :loading="migrateLoading"
-                      size="small"
-                    >
-                      迁移环境变量
-                    </el-button>
-                  </el-card>
-                </el-col>
-                <el-col :span="8">
-                  <el-alert
-                    title="🔒 安全提示"
-                    type="warning"
-                    description="敏感密钥通过环境变量/运维配置注入，后端响应已统一脱敏；请勿在界面或导出文件中保存真实密钥。"
-                    show-icon
-                    :closable="false"
-                  />
-                </el-col>
-              </el-row>
-            </div>
-          </div>
-        </el-card>
-
         <!-- 导入导出 -->
         <el-card v-show="activeTab === 'import-export'" class="config-content" shadow="never">
           <template #header>
@@ -914,20 +493,6 @@
         </el-card>
       </el-col>
     </el-row>
-
-    <!-- 厂家管理对话框 -->
-    <ProviderDialog
-      v-model:visible="providerDialogVisible"
-      :provider="currentProvider"
-      @success="handleProviderSuccess"
-    />
-
-    <!-- 大模型配置对话框 -->
-    <LLMConfigDialog
-      v-model:visible="llmDialogVisible"
-      :config="currentLLMConfig"
-      @success="handleLLMConfigSuccess"
-    />
 
     <!-- 数据源配置对话框 -->
     <DataSourceConfigDialog
@@ -1044,65 +609,58 @@ import {
   Upload,
   Plus,
   Refresh,
-  Key,
-  OfficeBuilding,
-  CircleCheck,
-  Collection,
-  Star,
-  Money
+  CircleCheck
 } from '@element-plus/icons-vue'
 
 import {
   configApi,
-  type LLMProvider,
-  type LLMConfig,
   type DataSourceConfig,
   type DatabaseConfig,
-  type SettingMeta
+  type SettingMeta,
+  type LLMProvider
 } from '@/api/config'
 import ConfigValidator from '@/components/ConfigValidator.vue'
-import LLMConfigDialog from './components/LLMConfigDialog.vue'
-import ProviderDialog from './components/ProviderDialog.vue'
-import ModelCatalogManagement from './components/ModelCatalogManagement.vue'
 import DataSourceConfigDialog from './components/DataSourceConfigDialog.vue'
-import SimplifiedLLMConfig from './components/SimplifiedLLMConfig.vue'
+import LLMSettings from './components/LLMSettings.vue'
 
 // 响应式数据
 const activeTab = ref('validation')
-const providers = ref<LLMProvider[]>([])
-const llmConfigs = ref<LLMConfig[]>([])
-const llmConfigGroups = ref<any[]>([])
 const dataSourceConfigs = ref<DataSourceConfig[]>([])
 const databaseConfigs = ref<DatabaseConfig[]>([])
 const systemSettings = ref<Record<string, any>>({})
 const systemSettingsMeta = ref<Record<string, SettingMeta>>({})
-const defaultLLM = ref<string>('')
-
-// 厂家信息映射
-const providerInfoMap = ref<Record<string, any>>({})
 const defaultDataSource = ref<string>('')
 
+// LLM Provider相关（用于系统设置下拉框）
+const providers = ref<LLMProvider[]>([])
+
 // 加载状态
-const providersLoading = ref(false)
-const llmLoading = ref(false)
 const dataSourceLoading = ref(false)
 const databaseLoading = ref(false)
 const systemLoading = ref(false)
 const systemSaving = ref(false)
 const exportLoading = ref(false)
 const importLoading = ref(false)
-const migrateLoading = ref(false)
 const reloadLoading = ref(false)
+const migrateLoading = ref(false)
 
-// 对话框状态
-const providerDialogVisible = ref(false)
-const currentProvider = ref<Partial<LLMProvider>>({})
+// 已启用的厂家（用于系统设置）
+const enabledProviders = computed(() => {
+  return providers.value.filter(p => p.is_active)
+})
 
-// 新增：数据源相关对话框
+// 为指定厂家获取可用模型列表
+const availableModelsForProvider = (providerName: string) => {
+  if (!providerName) return []
+  const provider = providers.value.find(p => p.name === providerName)
+  return provider?.models || []
+}
+
+// 数据源相关对话框
 const dataSourceDialogVisible = ref(false)
 const currentDataSourceConfig = ref<DataSourceConfig | null>(null)
 
-// 新增：数据库配置对话框
+// 数据库配置对话框
 const databaseDialogVisible = ref(false)
 const databaseDialogMode = ref<'add' | 'edit'>('add')
 const currentDatabaseConfig = ref<Partial<DatabaseConfig>>({
@@ -1120,9 +678,6 @@ const currentDatabaseConfig = ref<Partial<DatabaseConfig>>({
   description: ''
 })
 
-// 测试状态
-const testingProviders = ref<Record<string, boolean>>({})
-
 // 方法
 const handleMenuSelect = (index: string) => {
   activeTab.value = index
@@ -1131,12 +686,6 @@ const handleMenuSelect = (index: string) => {
 
 const loadTabData = async (tab: string) => {
   switch (tab) {
-    case 'providers':
-      await loadProviders()
-      break
-    case 'llm':
-      await loadLLMConfigs()
-      break
     case 'datasource':
       await loadDataSourceConfigs()
       break
@@ -1144,129 +693,9 @@ const loadTabData = async (tab: string) => {
       await loadDatabaseConfigs()
       break
     case 'system':
-      // 系统设置需要加载厂家和大模型配置，用于模型选择下拉框
-      await loadProviders()
-      await loadLLMConfigs()
       await loadSystemSettings()
       break
-    case 'api-keys':
-      await loadProviders()
-      await loadLLMConfigs()
-      break
   }
-}
-
-// 计算属性：获取已启用的厂家
-const enabledProviders = computed(() => {
-  return providers.value.filter(p => p.is_active)
-})
-
-// 函数：根据厂家获取可用的模型
-const availableModelsForProvider = (providerId: string) => {
-  console.log('🔍 获取厂家模型:', providerId)
-  console.log('📊 所有大模型配置:', llmConfigs.value)
-  if (!providerId) {
-    console.log('⚠️ 厂家ID为空')
-    return []
-  }
-  const models = llmConfigs.value.filter(config => {
-    console.log(`检查模型: ${config.model_name}, provider: ${config.provider}, enabled: ${config.enabled}`)
-    return config.provider === providerId && config.enabled
-  })
-  console.log(`✅ 找到 ${models.length} 个可用模型:`, models)
-  return models
-}
-
-// 加载厂家列表
-const loadProviders = async () => {
-  providersLoading.value = true
-  try {
-    console.log('🔄 开始加载厂家列表...')
-    const providerList = await configApi.getLLMProviders()
-    console.log('📊 厂家列表响应:', providerList)
-    providers.value = providerList
-    console.log('✅ 厂家列表加载成功，数量:', providerList.length)
-  } catch (error) {
-    console.error('❌ 加载厂家列表失败:', error)
-    ElMessage.error('加载厂家列表失败')
-  } finally {
-    providersLoading.value = false
-  }
-}
-
-const loadLLMConfigs = async () => {
-  llmLoading.value = true
-  try {
-    console.log('🔄 开始加载大模型配置...')
-    const configs = await configApi.getLLMConfigs()
-    console.log('📊 大模型配置响应:', configs)
-    llmConfigs.value = configs
-    console.log('✅ 大模型配置加载成功，数量:', configs.length)
-
-    // 获取默认LLM
-    const systemConfig = await configApi.getSystemConfig()
-    console.log('📊 系统配置响应:', systemConfig)
-    defaultLLM.value = systemConfig.default_llm || ''
-
-    // 构建分组数据
-    buildLLMConfigGroups()
-  } catch (error) {
-    console.error('❌ 加载大模型配置失败:', error)
-    ElMessage.error('加载大模型配置失败')
-  } finally {
-    llmLoading.value = false
-  }
-}
-
-// 构建大模型配置分组数据
-const buildLLMConfigGroups = () => {
-  // 按厂家分组
-  const providerGroups: Record<string, LLMConfig[]> = {}
-
-  llmConfigs.value.forEach(config => {
-    const provider = config.provider
-    if (!providerGroups[provider]) {
-      providerGroups[provider] = []
-    }
-    providerGroups[provider].push(config)
-  })
-
-  // 构建分组数据
-  const groups: any[] = []
-
-  Object.entries(providerGroups).forEach(([provider, models]) => {
-    // 获取厂家信息
-    const providerInfo = providerInfoMap.value[provider] || {
-      display_name: getProviderDisplayName(provider),
-      description: `${getProviderDisplayName(provider)} 大模型服务`,
-      is_active: true
-    }
-
-    // 创建厂家分组
-    const group = {
-      provider: provider,
-      display_name: providerInfo.display_name,
-      description: providerInfo.description,
-      is_active: providerInfo.is_active,
-      models: models.sort((a, b) => {
-        // 默认模型排在前面
-        if (a.model_name === defaultLLM.value) return -1
-        if (b.model_name === defaultLLM.value) return 1
-        // 启用的模型排在前面
-        if (a.enabled && !b.enabled) return -1
-        if (!a.enabled && b.enabled) return 1
-        // 按名称排序
-        return a.model_name.localeCompare(b.model_name)
-      })
-    }
-
-    groups.push(group)
-  })
-
-  // 按厂家名称排序
-  groups.sort((a, b) => a.display_name.localeCompare(b.display_name))
-
-  llmConfigGroups.value = groups
 }
 
 const loadDataSourceConfigs = async () => {
@@ -1347,392 +776,14 @@ const loadSystemSettings = async () => {
   }
 }
 
-// ========== 厂家管理操作 ==========
-
-// 显示添加厂家对话框
-const showAddProviderDialog = () => {
-  currentProvider.value = {}
-  providerDialogVisible.value = true
-}
-
-// 编辑厂家
-const editProvider = (provider: LLMProvider) => {
-  currentProvider.value = { ...provider }
-  providerDialogVisible.value = true
-}
-
-// 切换厂家状态
-const toggleProvider = async (provider: LLMProvider) => {
+// 加载LLM厂家列表（用于系统设置下拉框）
+const loadProviders = async () => {
   try {
-    await configApi.toggleLLMProvider(provider.id, !provider.is_active)
-    await loadProviders()
-    ElMessage.success(`厂家已${provider.is_active ? '禁用' : '启用'}`)
+    providers.value = await configApi.getLLMProviders()
   } catch (error) {
-    ElMessage.error('切换厂家状态失败')
+    console.error('加载厂家列表失败:', error)
   }
 }
-
-// 删除厂家
-const deleteProvider = async (provider: LLMProvider) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除厂家 ${provider.display_name} 吗？删除后该厂家下的所有模型配置也将被删除。`,
-      '确认删除',
-      { type: 'warning' }
-    )
-
-    await configApi.deleteLLMProvider(provider.id)
-    await loadProviders()
-    ElMessage.success('厂家删除成功')
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除厂家失败')
-    }
-  }
-}
-
-// 厂家操作成功回调
-const handleProviderSuccess = () => {
-  loadProviders()
-  // 重新加载厂家信息到映射表
-  loadProviderInfoMap()
-}
-
-// 加载厂家信息到映射表
-const loadProviderInfoMap = async () => {
-  try {
-    const providerList = await configApi.getLLMProviders()
-    const map: Record<string, any> = {}
-
-    providerList.forEach(provider => {
-      map[provider.name] = {
-        display_name: provider.display_name,
-        description: provider.description,
-        is_active: provider.is_active
-      }
-    })
-
-    providerInfoMap.value = map
-  } catch (error) {
-    console.error('加载厂家信息映射失败:', error)
-  }
-}
-
-// 刷新大模型配置数据
-const refreshLLMConfigs = () => {
-  buildLLMConfigGroups()
-}
-
-// 获取厂家标签类型
-const getProviderTagType = (provider: string) => {
-  const typeMap: Record<string, string> = {
-    'openai': 'primary',
-    'google': 'success',
-    'anthropic': 'warning',
-    'dashscope': 'info',
-    'qwen': 'info',
-    'zhipu': 'danger',
-    'deepseek': 'primary',
-    'qianfan': 'success'
-  }
-  return typeMap[provider.toLowerCase()] || 'info'
-}
-
-// 🆕 获取能力等级文本
-const getCapabilityLevelText = (level: number) => {
-  const levelMap: Record<number, string> = {
-    1: '1级-基础',
-    2: '2级-标准',
-    3: '3级-高级',
-    4: '4级-专业',
-    5: '5级-旗舰'
-  }
-  return levelMap[level] || `${level}级`
-}
-
-// 🆕 获取能力等级标签类型
-const getCapabilityLevelType = (level: number) => {
-  const typeMap: Record<number, string> = {
-    1: 'info',
-    2: '',
-    3: 'success',
-    4: 'warning',
-    5: 'danger'
-  }
-  return typeMap[level] || ''
-}
-
-// 🆕 获取角色文本
-const getRoleText = (role: string) => {
-  const roleMap: Record<string, string> = {
-    'quick_analysis': '快速分析',
-    'deep_analysis': '深度分析',
-    'both': '全能型'
-  }
-  return roleMap[role] || role
-}
-
-// 🆕 格式化价格显示（去除尾部多余的零）
-const formatPrice = (price: number | undefined | null) => {
-  if (price === undefined || price === null) {
-    return '0'
-  }
-  // 转换为字符串并去除尾部多余的零
-  return parseFloat(price.toFixed(6)).toString()
-}
-
-// 为厂家添加模型
-const addModelToProvider = (providerRow: any) => {
-  // 预设厂家信息
-  currentLLMConfig.value = {
-    provider: providerRow.provider,
-    model_name: '',
-    display_name: '',
-    description: '',
-    enabled: true,
-    max_tokens: 4000,
-    temperature: 0.7,
-    timeout: 60,
-    retry_times: 3,
-    priority: 0,
-    api_base: '',
-    model_category: '',
-    enable_memory: false,
-    enable_debug: false
-  }
-
-  llmDialogVisible.value = true
-  isEditingLLM.value = false
-}
-
-// 切换厂家状态
-const toggleProviderStatus = async (providerRow: any) => {
-  try {
-    const newStatus = !providerRow.is_active
-    const action = newStatus ? '启用' : '禁用'
-
-    // 获取厂家ID
-    const provider = providers.value.find(p => p.name === providerRow.provider)
-    if (!provider) {
-      ElMessage.error('找不到厂家信息')
-      return
-    }
-
-    // 调用后端API切换厂家状态
-    await configApi.toggleLLMProvider(provider.id, newStatus)
-
-    // 重新加载数据
-    await loadProviders()
-    await loadLLMConfigs()
-
-    // 重新构建厂家信息映射和分组数据
-    await loadProviderInfoMap()
-    buildLLMConfigGroups()
-
-    ElMessage.success(`厂家已${action}`)
-  } catch (error) {
-    console.error('切换厂家状态失败:', error)
-    ElMessage.error('切换厂家状态失败')
-  }
-}
-
-// 测试厂家API
-const testProviderAPI = async (provider: LLMProvider) => {
-  try {
-    console.log('🔍 测试厂家API:', provider)
-    console.log('📋 厂家ID:', provider.id)
-    console.log('📋 厂家名称:', provider.display_name)
-
-    testingProviders.value[provider.id] = true
-
-    // 调用测试API
-    const result = await configApi.testProviderAPI(provider.id)
-
-    if (result.success) {
-      ElMessage.success(`${provider.display_name} API测试成功`)
-    } else {
-      ElMessage.error(`${provider.display_name} API测试失败: ${result.message}`)
-    }
-  } catch (error) {
-    console.error('API测试失败:', error)
-    ElMessage.error(`${provider.display_name} API测试失败`)
-  } finally {
-    testingProviders.value[provider.id] = false
-  }
-}
-
-// 获取厂家显示名称
-const getProviderDisplayName = (providerId: string) => {
-  const provider = providers.value.find(p => p.name === providerId)
-  return provider?.display_name || providerId
-}
-
-// API密钥状态相关计算属性
-const configuredProvidersCount = computed(() => {
-  return providers.value.filter(p => p.extra_config?.has_api_key === true).length
-})
-
-const activeProvidersCount = computed(() => {
-  return providers.value.filter(p => p.is_active).length
-})
-
-// 获取密钥状态类型
-const getKeyStatusType = (provider: LLMProvider) => {
-  if (!provider.extra_config?.has_api_key) {
-    return 'info'
-  }
-  return provider.is_active ? 'success' : 'warning'
-}
-
-// 获取密钥状态文本
-const getKeyStatusText = (provider: LLMProvider) => {
-  if (!provider.extra_config?.has_api_key) {
-    return '未配置'
-  }
-  if (!provider.is_active) {
-    return '已配置(禁用)'
-  }
-
-  if (provider.extra_config?.source === 'environment') {
-    return '已配置(环境变量)'
-  }
-
-  return '已配置'
-}
-
-// 从环境变量迁移
-const migrateFromEnv = async () => {
-  try {
-    await ElMessageBox.confirm(
-      '此操作将从 .env 文件中读取API密钥并创建对应的厂家配置。已存在的厂家配置不会被覆盖。',
-      '确认迁移',
-      { type: 'info' }
-    )
-
-    migrateLoading.value = true
-    const result = await configApi.migrateEnvToProviders()
-
-    ElMessage.success(result.message)
-
-    // 重新加载厂家列表
-    await loadProviders()
-
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('迁移失败:', error)
-      ElMessage.error('迁移失败，请检查控制台错误信息')
-    }
-  } finally {
-    migrateLoading.value = false
-  }
-}
-
-// ========== 大模型配置操作 ==========
-
-// 大模型配置对话框
-const llmDialogVisible = ref(false)
-const currentLLMConfig = ref<LLMConfig | null>(null)
-const isEditingLLM = ref(false)
-
-const showAddLLMDialog = () => {
-  currentLLMConfig.value = null
-  isEditingLLM.value = false
-  llmDialogVisible.value = true
-}
-
-const editLLMConfig = (config: LLMConfig) => {
-  currentLLMConfig.value = config
-  isEditingLLM.value = true
-  llmDialogVisible.value = true
-}
-
-const handleLLMConfigSuccess = () => {
-  loadLLMConfigs()
-}
-
-// 设置默认LLM
-const setDefaultLLM = async (modelName: string) => {
-  try {
-    await configApi.setDefaultLLM(modelName)
-    defaultLLM.value = modelName
-    buildLLMConfigGroups() // 重新构建分组以更新排序
-    ElMessage.success('默认大模型设置成功')
-  } catch (error) {
-    ElMessage.error('设置默认大模型失败')
-  }
-}
-
-// 测试LLM配置
-const testLLMConfig = async (config: LLMConfig) => {
-  try {
-    console.log('🧪 测试LLM配置:', config)
-    console.log('📋 厂家:', config.provider)
-    console.log('📋 模型名称:', config.model_name)
-    console.log('📋 显示名称:', config.model_display_name)
-    console.log('📋 API基础URL:', config.api_base)
-
-    const result = await configApi.testConfig({
-      config_type: 'llm',
-      config_data: config
-    })
-
-    console.log('✅ 测试结果:', result)
-
-    if (result.success) {
-      ElMessage.success(`测试成功: ${result.message}`)
-    } else {
-      ElMessage.error(`测试失败: ${result.message}`)
-    }
-  } catch (error: any) {
-    console.error('❌ 测试配置失败:', error)
-    console.error('❌ 错误详情:', error.response?.data)
-    ElMessage.error(error.response?.data?.detail || error.message || '测试配置失败')
-  }
-}
-
-// 切换LLM配置启用状态
-const toggleLLMConfig = async (config: LLMConfig) => {
-  try {
-    const newStatus = !config.enabled
-    const action = newStatus ? '启用' : '禁用'
-
-    // 更新配置
-    const updateData = {
-      ...config,
-      enabled: newStatus
-    }
-
-    await configApi.updateLLMConfig(updateData)
-    await loadLLMConfigs()
-    ElMessage.success(`模型已${action}`)
-  } catch (error) {
-    ElMessage.error('切换模型状态失败')
-  }
-}
-
-// 删除LLM配置
-const deleteLLMConfig = async (config: LLMConfig) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除大模型配置 ${config.provider}/${config.model_name} 吗？`,
-      '确认删除',
-      { type: 'warning' }
-    )
-
-    await configApi.deleteLLMConfig(config.provider, config.model_name)
-    await loadLLMConfigs()
-    ElMessage.success('大模型配置删除成功')
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除大模型配置失败')
-    }
-  }
-}
-
-
-
-
-
 // 数据源相关操作
 const showAddDataSourceDialog = () => {
   currentDataSourceConfig.value = null
@@ -2034,9 +1085,8 @@ watch(
 
 // 生命周期
 onMounted(async () => {
-  // 先加载厂家信息，再加载其他数据
+  // 加载厂家信息（用于系统设置下拉框）
   await loadProviders()
-  await loadProviderInfoMap()
   loadTabData(activeTab.value)
 })
 </script>

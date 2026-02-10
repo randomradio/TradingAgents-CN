@@ -1,9 +1,34 @@
 """
 配置桥接模块
-将统一配置系统的配置桥接到环境变量，供 TradingAgents 核心库使用
+
+⚠️ DEPRECATED - This module is deprecated and will be removed in a future version.
+
+Use the simplified LLM configuration instead:
+    from tradingagents.config.llm_config import get_llm_config, get_config_for_graph
+
+The config_bridge pattern (MongoDB → env vars → core framework) was too complex
+and caused event loop conflicts. The new system reads directly from MongoDB.
+
+Old usage:
+    from app.core.config_bridge import bridge_config_to_env
+
+New usage:
+    from tradingagents.config.llm_config import get_config_for_graph
+    config = get_config_for_graph()
+    ta = TradingAgentsGraph(config=config)
+
+This file is kept for backward compatibility but should not be used in new code.
 """
 
 import os
+import warnings
+
+# Show deprecation warning when this module is imported
+warnings.warn(
+    "config_bridge is deprecated. Use tradingagents.config.llm_config instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
 import json
 import logging
 from pathlib import Path

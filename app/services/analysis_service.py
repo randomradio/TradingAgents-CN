@@ -167,8 +167,28 @@ class AnalysisService:
             # 成本估算
             progress_tracker.update_progress("💰 预估分析成本")
 
-            # 根据模型名称动态查找供应商（同步版本）
-            llm_provider = "dashscope"  # 默认使用dashscope
+            # 从新的 llm_providers 集合读取配置
+            llm_provider = None
+            try:
+                from pymongo import MongoClient
+                from app.core.config import settings
+
+                client = MongoClient(settings.MONGO_URI)
+                db = client[settings.MONGO_DB]
+
+                # 从新的 llm_providers 集合读取
+                provider = db.llm_providers.find_one({"is_active": True, "enabled": True})
+                if provider:
+                    llm_provider = provider.get("name")
+                    logger.info(f"✅ 从 llm_providers 读取到 provider: {llm_provider}")
+                else:
+                    llm_provider = "dashscope"  # 默认使用dashscope
+                    logger.info(f"⚠️ 未找到活跃的 llm_provider，使用默认: {llm_provider}")
+
+                client.close()
+            except Exception as e:
+                llm_provider = "dashscope"  # 默认使用dashscope
+                logger.warning(f"⚠️ 读取 llm_provider 失败: {e}，使用默认: {llm_provider}")
 
             # 参数配置
             progress_tracker.update_progress("⚙️ 配置分析参数")

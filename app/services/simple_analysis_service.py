@@ -101,11 +101,13 @@ def get_provider_and_url_by_model_sync(model_name: str) -> dict:
     """
     根据模型名称从数据库配置中查找对应的供应商和 API URL（同步版本）
 
+    现在优先从 llm_providers 集合读取（简化配置结构）
+
     Args:
-        model_name: 模型名称，如 'qwen-turbo', 'gpt-4' 等
+        model_name: 模型名称，如 'deepseek-chat', 'gpt-4' 等
 
     Returns:
-        dict: {"provider": "google", "backend_url": "https://...", "api_key": "xxx"}
+        dict: {"provider": "deepseek", "backend_url": "https://...", "api_key": "xxx"}
     """
     try:
         # 使用同步 MongoDB 客户端直接查询
@@ -116,7 +118,47 @@ def get_provider_and_url_by_model_sync(model_name: str) -> dict:
         client = MongoClient(settings.MONGO_URI)
         db = client[settings.MONGO_DB]
 
-        # 查询最新的活跃配置
+        # 🔥 新逻辑：优先从 llm_providers 集合查询（简化配置）
+        providers_collection = db.llm_providers
+
+        # 查找启用的提供商，按模型名称匹配
+        provider_doc = providers_collection.find_one({
+            "is_active": True,
+            "enabled": True,
+            "model": model_name
+        })
+
+        if provider_doc:
+            provider = provider_doc.get("name")
+            api_key = provider_doc.get("api_key")
+            backend_url = provider_doc.get("base_url") or provider_doc.get("default_base_url")
+
+            logger.info(f"✅ [同步查询] 从 llm_providers 找到模型 {model_name}, provider={provider}")
+
+            # 确认 API Key
+            if api_key and api_key.strip() and api_key != "your-api-key":
+                logger.info(f"✅ [同步查询] 使用 llm_providers 的 API Key")
+            else:
+                # 回退到环境变量
+                api_key = _get_env_api_key_for_provider(provider)
+                if api_key:
+                    logger.info(f"✅ [同步查询] 使用环境变量的 API Key")
+
+            # 确认 backend_url
+            if backend_url:
+                logger.info(f"✅ [同步查询] 使用 llm_providers 的 base_url: {backend_url}")
+            else:
+                backend_url = _get_default_backend_url(provider)
+                logger.warning(f"⚠️ [同步查询] 使用默认 backend_url: {backend_url}")
+
+            client.close()
+            return {
+                "provider": provider,
+                "backend_url": backend_url,
+                "api_key": api_key
+            }
+
+        # 如果 llm_providers 没找到，尝试旧的 system_configs.llm_configs（向后兼容）
         configs_collection = db.system_configs
         doc = configs_collection.find_one({"is_active": True}, sort=[("version", -1)])
 
@@ -130,7 +172,6 @@ def get_provider_and_url_by_model_sync(model_name: str) -> dict:
                     model_api_key = config_dict.get("api_key")  # 🔥 获取模型配置的 API Key
 
                     # 从 llm_providers 集合中查找厂家配置
-                    providers_collection = db.llm_providers
                     provider_doc = providers_collection.find_one({"name": provider})
 
                     # 🔥 确定 API Key（优先级：模型配置 > 厂家配置 > 环境变量）
@@ -354,9 +395,10 @@ def _get_default_provider_by_model(model_name: str) -> str:
         'gemini-2.0-flash': 'google',
         'gemini-2.0-flash-thinking-exp': 'google',
 
-        # DeepSeek
+        # DeepSeek (优先使用)
         'deepseek-chat': 'deepseek',
         'deepseek-coder': 'deepseek',
+        'deepseek-reasoner': 'deepseek',
 
         # 智谱AI
         'glm-4': 'zhipu',
@@ -364,7 +406,7 @@ def _get_default_provider_by_model(model_name: str) -> str:
         'chatglm3-6b': 'zhipu'
     }
 
-    provider = model_provider_map.get(model_name, 'dashscope')  # 默认使用阿里百炼
+    provider = model_provider_map.get(model_name, 'deepseek')  # 默认使用 DeepSeek
     logger.info(f"🔧 使用默认映射: {model_name} -> {provider}")
     return provider
 
